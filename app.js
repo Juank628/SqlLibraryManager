@@ -61,7 +61,13 @@ app.get("/books", (req, res) => {
 
 //get new book form
 app.get("/books/new", (req, res) => {
-  res.render("new-book");
+  const book = {
+    title: "",
+    author: "",
+    genre: "",
+    year: ""
+  }
+  res.render("new-book", {book});
 });
 
 //create new book
@@ -72,7 +78,7 @@ app.post("/books/new", (req, res) => {
     })
     .catch(err => {
       if (err.name === "SequelizeValidationError") {
-        res.render("new-book", { errors: err.errors });
+        res.render("new-book", { errors: err.errors, book: req.body});
       } else {
         throw err;
       }

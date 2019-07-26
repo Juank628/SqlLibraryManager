@@ -111,7 +111,5 @@ input[type=text] {
 .pagination {
   margin-top: 50px;
   margin-right: auto;
-  margin-left: auto;
   width: 200px;
-  text-align: center;
 }
