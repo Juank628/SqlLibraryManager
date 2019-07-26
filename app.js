@@ -1,33 +1,62 @@
 const express = require("express");
-const secuelize = require("./models").sequelize;
+const sequelize = require("./models").sequelize;
+const Op = require("sequelize").Op;
 const bodyParser = require("body-parser");
 const app = express();
 const port = 3000;
 const Book = require("./models").Book;
+const itemsPerPage = 5;
 
 app.set("view engine", "pug");
 app.use("/static", express.static("public"));
 app.use(bodyParser.urlencoded({ extended: false }));
 
+//
 //Routes
+//
 
 app.get("/", (req, res) => {
   res.redirect("/books");
 });
 
-//get all books
+//search books from the search bar
+app.post("/books", (req, res) => {
+  res.redirect(`/books/?column=${req.body.column}&searchWord=${req.body.searchWord}&&page=1`);
+});
+
+//search books. First search without limit to get total number of pages. then search whith limit to render each page.
 app.get("/books", (req, res) => {
-  Book.findAll()
-    .then(books => {
-      if (!books || books.length === 0) {
-        const err = new Error("No books in database");
-        throw err;
+  const column = req.query.column || "title";
+  const searchWord = req.query.searchWord || "";
+  const page = req.query.page || 1;
+  Book.findAll({
+    where: {
+      [column]: {
+        [Op.like]: "%" + searchWord + "%"
       }
-      res.render("index", { books });
+    }
+  }).then(totalBooks => {
+    Book.findAll({
+      where: {
+        [column]: {
+          [Op.like]: "%" + searchWord + "%"
+        }
+      },
+      offset: page * itemsPerPage - itemsPerPage,
+      limit: itemsPerPage
     })
-    .catch(err => {
-      res.render("error", { err });
-    });
+      .then(books => {
+        if (!books || books.length === 0) {
+          const err = new Error("No books found");
+          throw err;
+        }
+        const totalPages = Math.ceil(totalBooks.length / itemsPerPage);
+        res.render("index", { books, totalPages, column, searchWord });
+      })
+      .catch(err => {
+        res.render("error", { err });
+      });
+  });
 });
 
 //get new book form
@@ -55,7 +84,6 @@ app.post("/books/new", (req, res) => {
 
 //book details
 app.get("/books/:id", (req, res) => {
-  console.log("get");
   Book.findByPk(req.params.id)
     .then(book => {
       if (!book) {
@@ -74,18 +102,22 @@ app.post("/books/:id", (req, res) => {
   Book.findByPk(req.params.id)
     .then(book => {
       if (book) {
-        return book.update(req.body)
-        .then(book => {
-          res.redirect("/books");
-        })
-        .catch(err => {
-          if (err.name === "SequelizeValidationError") {
-            res.render("update-book", { errors: err.errors, book: req.body, bookId: req.params.id});
-          } else {
-            console.log('second')
-            res.render("error", { err });
-          }
-        })
+        return book
+          .update(req.body)
+          .then(book => {
+            res.redirect("/books");
+          })
+          .catch(err => {
+            if (err.name === "SequelizeValidationError") {
+              res.render("update-book", {
+                errors: err.errors,
+                book: req.body,
+                bookId: req.params.id
+              });
+            } else {
+              res.render("error", { err });
+            }
+          });
       } else {
         const err = new Error("The book doesn't exist");
         throw err;
@@ -116,7 +148,6 @@ app.post("/books/:id/delete", (req, res) => {
 });
 
 //page not found
-
 app.use((req, res, next) => {
   let err = new Error("Page not found");
   err.status = 404;
@@ -133,9 +164,10 @@ app.use((err, req, res, next) => {
   }
 });
 
+//
 //database table creation, port selection and running message
-
-secuelize.sync().then(() => {
+//
+sequelize.sync().then(() => {
   app.listen(port, () => {
     console.log(`application running on port ${port}`);
   });
