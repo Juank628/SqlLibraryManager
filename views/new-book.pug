@@ -5,7 +5,12 @@ block title
 
 block content
     h1 New Book
-    form
+    if(errors)
+        h2.error Oooops!
+        ul.error
+        each error in errors
+            li= error.message
+    form(action="/books/new", method="post")
         p
             label(for="title") Title
             input(name="title" type="text" id="title")
